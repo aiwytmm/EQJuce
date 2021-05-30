@@ -27,11 +27,22 @@ EQAudioProcessorEditor::EQAudioProcessorEditor (EQAudioProcessor& p)
         addAndMakeVisible(components);
     }
 
+    const auto& params = audioProcessor.getParameters();
+    for (auto param : params) {
+        param->addListener(this);
+    }
+
+    startTimerHz(60);
+
     setSize (600, 400);
 }
 
 EQAudioProcessorEditor::~EQAudioProcessorEditor()
 {
+    const auto& params = audioProcessor.getParameters();
+    for (auto param : params) {
+        param->removeListener(this);
+    }
 }
 
 //==============================================================================
@@ -129,7 +140,13 @@ void EQAudioProcessorEditor::parameterValueChanged(int parameterIndex, float new
 
 void EQAudioProcessorEditor::timerCallback() {
     if (parametersChanged.compareAndSetBool(false, true)) {
+        //update the mono chain
+        auto chainSettings = getChainSettings(audioProcessor.apvts);
+        auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+        updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
 
+        //signal a repaint
+        repaint();
     }
 }
 
