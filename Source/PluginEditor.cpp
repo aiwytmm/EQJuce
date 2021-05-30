@@ -123,6 +123,16 @@ void EQAudioProcessorEditor::resized()
 
 }
 
+void EQAudioProcessorEditor::parameterValueChanged(int parameterIndex, float newValue) {
+    parametersChanged.set(true);
+}
+
+void EQAudioProcessorEditor::timerCallback() {
+    if (parametersChanged.compareAndSetBool(false, true)) {
+
+    }
+}
+
 std::vector<juce::Component*> EQAudioProcessorEditor::getComponents() {
     return {
         &peakFreqSlider,
