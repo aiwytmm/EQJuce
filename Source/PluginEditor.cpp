@@ -153,6 +153,8 @@ ResponseCurveComponent::ResponseCurveComponent(EQAudioProcessor& p) : audioProce
         param->addListener(this);
     }
 
+    updateChain();
+
     startTimerHz(60);
 }
 ResponseCurveComponent::~ResponseCurveComponent() {
@@ -169,18 +171,21 @@ void ResponseCurveComponent::parameterValueChanged(int parameterIndex, float new
 void ResponseCurveComponent::timerCallback() {
     if (parametersChanged.compareAndSetBool(false, true)) {
         //update the mono chain
-        auto chainSettings = getChainSettings(audioProcessor.apvts);
-        auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
-        updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
-
-        auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
-        auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
-        updateCutFilter(monoChain.get<ChainPositions::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
-        updateCutFilter(monoChain.get<ChainPositions::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
-
+        updateChain();
         //signal a repaint
         repaint();
     }
+}
+
+void ResponseCurveComponent::updateChain() {
+    auto chainSettings = getChainSettings(audioProcessor.apvts);
+    auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+    updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+
+    auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
+    auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
+    updateCutFilter(monoChain.get<ChainPositions::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
+    updateCutFilter(monoChain.get<ChainPositions::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
 }
 
 void ResponseCurveComponent::paint(juce::Graphics& g)
@@ -317,10 +322,13 @@ void EQAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
+    float hRation = 25.f / 100.f; /* JUCE_LIVE_CONSTANT(33) / 100.f */
     auto bounds = getLocalBounds();
-    auto responseArea = bounds.removeFromTop(bounds.getHeight() * 0.33);
+    auto responseArea = bounds.removeFromTop(bounds.getHeight() * hRation);
 
     responseCurveComponent.setBounds(responseArea);
+
+    bounds.removeFromTop(5);
 
     auto lowCutArea = bounds.removeFromLeft(bounds.getWidth() * 0.33);
     auto highCutArea = bounds.removeFromRight(bounds.getWidth() * 0.5);
