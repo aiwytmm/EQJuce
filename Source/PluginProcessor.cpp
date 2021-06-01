@@ -109,6 +109,11 @@ void EQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     leftChannelFifo.prepare(samplesPerBlock);
     rightChannelFifo.prepare(samplesPerBlock);
+
+    osc.initialise([](float x) { return std::sin(x); });
+    spec.numChannels = getTotalNumOutputChannels();
+    osc.prepare(spec);
+    osc.setFrequency(1000);
 }
 
 void EQAudioProcessor::releaseResources()
@@ -159,14 +164,13 @@ void EQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         buffer.clear (i, 0, buffer.getNumSamples());
 
     updateFilters();
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
 
     juce::dsp::AudioBlock<float> block(buffer);
+
+    /*buffer.clear();
+
+    juce::dsp::ProcessContextReplacing<float> stereoContex(block);
+    osc.process(stereoContex);*/
 
     auto leftBlock = block.getSingleChannelBlock(0);
     auto rightBlock = block.getSingleChannelBlock(1);
