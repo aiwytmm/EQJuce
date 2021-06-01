@@ -60,12 +60,18 @@ struct ResponseCurveComponent : juce::Component,
     void parameterGestureChanged(int parameterIndex, bool gestureIsStarting) override { }
     void timerCallback() override;
     void paint(juce::Graphics& g) override;
+    void resized() override;
 private: 
     EQAudioProcessor& audioProcessor;
     juce::Atomic<bool> parametersChanged{ false };
 
     MonoChain monoChain;
     void updateChain();
+
+    juce::Image background;
+
+    juce::Rectangle<int> getRenderArea();
+    juce::Rectangle<int> getAnalysisArea();
 };
 
 //==============================================================================
