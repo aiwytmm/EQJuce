@@ -106,6 +106,9 @@ void EQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     rightChain.prepare(spec);
 
     updateFilters();
+
+    leftChannelFifo.prepare(samplesPerBlock);
+    rightChannelFifo.prepare(samplesPerBlock);
 }
 
 void EQAudioProcessor::releaseResources()
@@ -173,6 +176,9 @@ void EQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
 
     leftChain.process(leftContex);
     rightChain.process(rightContex);
+
+    leftChannelFifo.update(buffer);
+    rightChannelFifo.update(buffer);
 }
 
 //==============================================================================
