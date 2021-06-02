@@ -9,7 +9,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-
 void LookAndFeel::drawRotarySlider(juce::Graphics& g,
     int x, int y, int width, int height,
     float sliderPosProportional,
@@ -109,7 +108,9 @@ void LookAndFeel::drawToggleButton(juce::Graphics& g,
         g.strokePath(analyzerButton->randomPath, PathStrokeType(1.f));
     }
 }
+
 //==============================================================================
+
 void RotarySliderWithLabels::paint(juce::Graphics& g) {
     using namespace juce;
 
@@ -194,13 +195,58 @@ juce::String RotarySliderWithLabels::getDisplayString() const {
 
     return str;
 }
+
 //==============================================================================
+
+void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate) {
+    juce::AudioBuffer<float> tempIncomingBuffer;
+
+    while (channelFifo->getNumCompleteBuffersAvailable() > 0) {
+        if (channelFifo->getAudioBuffer(tempIncomingBuffer)) {
+            auto size = tempIncomingBuffer.getNumSamples();
+
+            juce::FloatVectorOperations::copy(
+                monoBuffer.getWritePointer(0, 0),
+                monoBuffer.getReadPointer(0, size),
+                monoBuffer.getNumSamples() - size);
+
+            juce::FloatVectorOperations::copy(
+                monoBuffer.getWritePointer(0, monoBuffer.getNumSamples() - size),
+                tempIncomingBuffer.getReadPointer(0, 0),
+                size);
+
+            //send buffer to fft data generator 
+            channelFFTDataGenerator.ProduceFFTDataToRendering(monoBuffer, -48.f);
+        }
+    }
+
+    /* if there are fft data buffers to pull
+    *   if we can pull a buffer
+    *       generate a path */
+    const auto fftSize = channelFFTDataGenerator.getFFTSize();
+    const auto binWidth = sampleRate / (double)fftSize; // 48000 / 2048 = 23Hz
+
+    while (channelFFTDataGenerator.getNumAvailableFFTDBlocks() > 0) {
+        std::vector<float> fftData;
+        if (channelFFTDataGenerator.getFFTData(fftData)) {
+            pathProducer.generatePath(fftData, fftBounds, fftSize, binWidth, -48.f);
+        }
+    }
+
+    /* while there are paths that can be pull
+    *   pull as many as we can
+    *       display the most recent path */
+    while (pathProducer.getNumPathsAvailable()) {
+        pathProducer.getPath(channelFFTPath);
+    }
+}
+
+//==============================================================================
+
 ResponseCurveComponent::ResponseCurveComponent(EQAudioProcessor& p) : 
     audioProcessor(p), 
     leftPathProducer(audioProcessor.leftChannelFifo),
     rightPathProducer(audioProcessor.rightChannelFifo)
-
-    //leftChannelFifo(&audioProcessor.leftChannelFifo)
 {
     const auto& params = audioProcessor.getParameters();
     for (auto param : params) {
@@ -222,53 +268,6 @@ void ResponseCurveComponent::parameterValueChanged(int parameterIndex, float new
     parametersChanged.set(true);
 }
 
-//==============================================================================
-void PathProducer::process(juce::Rectangle<float> fftBounds, double sampleRate) {
-    juce::AudioBuffer<float> tempIncomingBuffer;
-
-    while (leftChannelFifo->getNumCompleteBuffersAvailable() > 0) {
-        if (leftChannelFifo->getAudioBuffer(tempIncomingBuffer)) {
-            auto size = tempIncomingBuffer.getNumSamples();
-
-            juce::FloatVectorOperations::copy(
-                monoBuffer.getWritePointer(0, 0),
-                monoBuffer.getReadPointer(0, size),
-                monoBuffer.getNumSamples() - size);
-
-            juce::FloatVectorOperations::copy(
-                monoBuffer.getWritePointer(0, monoBuffer.getNumSamples() - size),
-                tempIncomingBuffer.getReadPointer(0, 0),
-                size);
-
-            //send buffer to fft data generator 
-            leftChannelFFTDataGenerator.ProduceFFTDataToRendering(monoBuffer, -48.f);
-        }
-    }
-
-    /* if there are fft data buffers to pull
-    *   if we can pull a buffer
-    *       generate a path */
-    const auto fftSize = leftChannelFFTDataGenerator.getFFTSize();
-    const auto binWidth = sampleRate / (double)fftSize; // 48000 / 2048 = 23Hz
-
-    while (leftChannelFFTDataGenerator.getNumAvailableFFTDBlocks() > 0) {
-        std::vector<float> fftData;
-        if (leftChannelFFTDataGenerator.getFFTData(fftData)) {
-            pathProducer.generatePath(fftData, fftBounds, fftSize, binWidth, -48.f);
-        }
-    }
-
-    /* while there are paths that can be pull
-    *   pull as many as we can
-    *       display the most recent path */
-    while (pathProducer.getNumPathsAvailable()) {
-        pathProducer.getPath(leftChannelFFTPath);
-    }
-}
-
-
-//==============================================================================
-
 void ResponseCurveComponent::timerCallback() {
     if (shouldShowFFTAnalysis) {
         auto fftBounds = getAnalysisArea().toFloat();
@@ -281,8 +280,6 @@ void ResponseCurveComponent::timerCallback() {
     if (parametersChanged.compareAndSetBool(false, true)) {
         //update the mono chain
         updateChain();
-        //signal a repaint
-        //repaint();
     }
 
     repaint();
@@ -380,7 +377,6 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
 
         g.setColour(Colours::lightyellow);
         g.strokePath(rightChannelFFTPath, PathStrokeType(1.f));
-
     }
 
     g.setColour(Colours::orange);
@@ -609,7 +605,6 @@ EQAudioProcessorEditor::EQAudioProcessorEditor (EQAudioProcessor& p)
 
     setSize (600, 500);
 }
-
 EQAudioProcessorEditor::~EQAudioProcessorEditor()
 {
     peakBypassButton.setLookAndFeel(nullptr);
@@ -618,7 +613,6 @@ EQAudioProcessorEditor::~EQAudioProcessorEditor()
     analyzerEnabledButton.setLookAndFeel(nullptr);
 }
 
-//==============================================================================
 void EQAudioProcessorEditor::paint (juce::Graphics& g)
 {
     using namespace juce;
@@ -662,7 +656,6 @@ void EQAudioProcessorEditor::resized()
     peakFreqSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.33));
     peakGainSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.5));
     peakQualitySlider.setBounds(bounds);
-
 }
 
 std::vector<juce::Component*> EQAudioProcessorEditor::getComponents() {
