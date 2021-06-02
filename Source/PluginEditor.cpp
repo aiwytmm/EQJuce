@@ -100,7 +100,7 @@ void LookAndFeel::drawToggleButton(juce::Graphics& g,
         g.drawEllipse(r, 2.f);
     }
     else if (auto* analyzerButton = dynamic_cast<AnalyzerButton*>(&toggleButton)) {
-        auto color = !toggleButton.getToggleState() ? Colours::dimgrey : Colour(0u, 172u, 1u);
+        auto color = ! toggleButton.getToggleState() ? Colours::dimgrey : Colour(0u, 172u, 1u);
         g.setColour(color);
 
         auto bounds = toggleButton.getLocalBounds();
@@ -603,7 +603,7 @@ EQAudioProcessorEditor::EQAudioProcessorEditor (EQAudioProcessor& p)
         if (auto* component = safePtr.getComponent()) {
             auto enabled = component->analyzerEnabledButton.getToggleState();
 
-            component->responseCurveComponent.toggleAnalysisEnablement(!enabled);
+            component->responseCurveComponent.toggleAnalysisEnablement(enabled);
         }
     };
 
