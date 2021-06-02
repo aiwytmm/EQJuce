@@ -65,39 +65,61 @@ void LookAndFeel::drawToggleButton(juce::Graphics& g,
     bool shouldDrawButtonAsDown) {
     using namespace juce;
 
-    Path powerButton;
+    if (auto* pb = dynamic_cast<PowerButton*>(&toggleButton)) {
+        Path powerButton;
 
-    auto bounds = toggleButton.getLocalBounds();
-    /*g.setColour(Colours::red);
-    g.drawRect(bounds);*/
-    auto size = juce::jmin(bounds.getWidth(), bounds.getHeight()) - 6;//JUCE_LIVE_CONSTANT(6);
-    auto r = bounds.withSizeKeepingCentre(size, size).toFloat();
+        auto bounds = toggleButton.getLocalBounds();
+        /*g.setColour(Colours::red);
+        g.drawRect(bounds);*/
+        auto size = juce::jmin(bounds.getWidth(), bounds.getHeight()) - 6;//JUCE_LIVE_CONSTANT(6);
+        auto r = bounds.withSizeKeepingCentre(size, size).toFloat();
 
-    float angle = 30.f;//JUCE_LIVE_CONSTANT(30.f);
+        float angle = 30.f;//JUCE_LIVE_CONSTANT(30.f);
 
-    size -= 7;//JUCE_LIVE_CONSTANT(6);
+        size -= 7;//JUCE_LIVE_CONSTANT(6);
 
-    powerButton.addCentredArc(r.getCentreX(), 
-        r.getCentreY(), 
-        size * 0.5, 
-        size * 0.5, 
-        0.f, 
-        degreesToRadians(angle), 
-        degreesToRadians(360.f - angle),
-        true);
-    powerButton.startNewSubPath(r.getCentreX(), r.getY());
-    powerButton.lineTo(r.getCentre());
+        powerButton.addCentredArc(r.getCentreX(),
+            r.getCentreY(),
+            size * 0.5,
+            size * 0.5,
+            0.f,
+            degreesToRadians(angle),
+            degreesToRadians(360.f - angle),
+            true);
+        powerButton.startNewSubPath(r.getCentreX(), r.getY());
+        powerButton.lineTo(r.getCentre());
 
-    PathStrokeType pst(2.f, PathStrokeType::JointStyle::curved);
+        PathStrokeType pst(2.f, PathStrokeType::JointStyle::curved);
 
-    auto color = toggleButton.getToggleState() ? Colours::dimgrey : Colour(0u, 172u, 1u);
-    g.setColour(color);
-    g.strokePath(powerButton, pst);
+        auto color = toggleButton.getToggleState() ? Colours::dimgrey : Colour(0u, 172u, 1u);
+        g.setColour(color);
+        g.strokePath(powerButton, pst);
 
-    g.drawEllipse(r, 2);
+        g.drawEllipse(r, 2.f);
+    }
+    else if (auto* analyzerButton = dynamic_cast<AnalyzerButton*>(&toggleButton)) {
+        auto color = !toggleButton.getToggleState() ? Colours::dimgrey : Colour(0u, 172u, 1u);
+        g.setColour(color);
 
+        auto bounds = toggleButton.getLocalBounds();
+        g.drawRect(bounds);
 
+        auto insetRect = bounds.reduced(4);
 
+        Path randomPath;
+
+        Random r;
+
+        randomPath.startNewSubPath(insetRect.getX(), 
+            insetRect.getY() + insetRect.getHeight() * r.nextFloat());
+
+        for (auto x = insetRect.getX() + 1; x < insetRect.getRight(); x += 2) {
+            randomPath.lineTo(x,
+                insetRect.getY() + insetRect.getHeight() * r.nextFloat());
+        }
+
+        g.strokePath(randomPath, PathStrokeType(1.f));
+    }
 }
 //==============================================================================
 void RotarySliderWithLabels::paint(juce::Graphics& g) {
@@ -552,6 +574,7 @@ EQAudioProcessorEditor::EQAudioProcessorEditor (EQAudioProcessor& p)
     peakBypassButton.setLookAndFeel(&lnf);
     lowcutBypassButton.setLookAndFeel(&lnf);
     highcutBypassButton.setLookAndFeel(&lnf);
+    analyzerEnabledButton.setLookAndFeel(&lnf);
 
     setSize (600, 500);
 }
@@ -561,6 +584,7 @@ EQAudioProcessorEditor::~EQAudioProcessorEditor()
     peakBypassButton.setLookAndFeel(nullptr);
     lowcutBypassButton.setLookAndFeel(nullptr);
     highcutBypassButton.setLookAndFeel(nullptr);
+    analyzerEnabledButton.setLookAndFeel(nullptr);
 }
 
 //==============================================================================
@@ -575,8 +599,17 @@ void EQAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-    float hRation = 25.f / 100.f; /* JUCE_LIVE_CONSTANT(33) / 100.f */
     auto bounds = getLocalBounds();
+
+    auto analyzerEnabledArea = bounds.removeFromTop(25);
+    analyzerEnabledArea.setWidth(100);
+    analyzerEnabledArea.setX(5);
+    analyzerEnabledArea.removeFromTop(2);
+    analyzerEnabledButton.setBounds(analyzerEnabledArea);
+
+    bounds.removeFromTop(5);
+
+    float hRation = 25.f / 100.f; /* JUCE_LIVE_CONSTANT(33) / 100.f */
     auto responseArea = bounds.removeFromTop(bounds.getHeight() * hRation);
 
     responseCurveComponent.setBounds(responseArea);
