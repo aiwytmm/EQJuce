@@ -37,7 +37,13 @@ struct FFTDataGenerator {
 
         //normalize fft values
         for (int i = 0; i < numBins; ++i) {
-            fftData[i] /= (float)numBins;
+            //fftData[i] /= (float)numBins;
+            auto nv = fftData[i];
+            if (!std::isinf(nv) && !std::isnan(nv))
+                nv /= float(numBins);
+            else
+                nv = 0.f;
+            fftData[i] = nv;
         }
 
         //convert to decibels
