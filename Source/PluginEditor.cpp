@@ -56,8 +56,46 @@ void LookAndFeel::drawRotarySlider(juce::Graphics& g,
 
         g.setColour(Colours::white);
         g.drawFittedText(text, r.toNearestInt(), juce::Justification::centred, 1);
-
     }
+}
+
+void LookAndFeel::drawToggleButton(juce::Graphics& g,
+    juce::ToggleButton& toggleButton,
+    bool shouldDrawButtonAsHighlighted,
+    bool shouldDrawButtonAsDown) {
+    using namespace juce;
+
+    Path powerButton;
+
+    auto bounds = toggleButton.getLocalBounds();
+    /*g.setColour(Colours::red);
+    g.drawRect(bounds);*/
+    auto size = juce::jmin(bounds.getWidth(), bounds.getHeight()) - 6;//JUCE_LIVE_CONSTANT(6);
+    auto r = bounds.withSizeKeepingCentre(size, size).toFloat();
+
+    float angle = 30.f;//JUCE_LIVE_CONSTANT(30.f);
+
+    size -= 7;//JUCE_LIVE_CONSTANT(6);
+
+    powerButton.addCentredArc(r.getCentreX(), 
+        r.getCentreY(), 
+        size * 0.5, 
+        size * 0.5, 
+        0.f, 
+        degreesToRadians(angle), 
+        degreesToRadians(360.f - angle),
+        true);
+    powerButton.startNewSubPath(r.getCentreX(), r.getY());
+    powerButton.lineTo(r.getCentre());
+
+    PathStrokeType pst(2.f, PathStrokeType::JointStyle::curved);
+
+    auto color = toggleButton.getToggleState() ? Colours::dimgrey : Colour(0u, 172u, 1u);
+    g.setColour(color);
+    g.strokePath(powerButton, pst);
+
+    g.drawEllipse(r, 2);
+
 
 
 }
@@ -511,11 +549,18 @@ EQAudioProcessorEditor::EQAudioProcessorEditor (EQAudioProcessor& p)
         addAndMakeVisible(components);
     }
 
+    peakBypassButton.setLookAndFeel(&lnf);
+    lowcutBypassButton.setLookAndFeel(&lnf);
+    highcutBypassButton.setLookAndFeel(&lnf);
+
     setSize (600, 500);
 }
 
 EQAudioProcessorEditor::~EQAudioProcessorEditor()
 {
+    peakBypassButton.setLookAndFeel(nullptr);
+    lowcutBypassButton.setLookAndFeel(nullptr);
+    highcutBypassButton.setLookAndFeel(nullptr);
 }
 
 //==============================================================================
