@@ -80,6 +80,8 @@ private:
     Fifo<BlockType> fftDataFifo;
 };
 
+//==============================================================================
+
 template<typename PathType>
 struct AnalyzerPathGenerator {
     //converts 'renderData[]' into a juce::Path
@@ -123,7 +125,6 @@ struct AnalyzerPathGenerator {
                 p.lineTo(binX, y);
             }
         }
-
         pathFifo.push(p);
     }
 
@@ -133,6 +134,8 @@ struct AnalyzerPathGenerator {
 private:
     Fifo<PathType> pathFifo;
 };
+
+//==============================================================================
 
 struct LookAndFeel : juce::LookAndFeel_V4 {
     void drawRotarySlider(juce::Graphics& g,
@@ -147,6 +150,8 @@ struct LookAndFeel : juce::LookAndFeel_V4 {
         bool shouldDrawButtonAsHighlighted,
         bool shouldDrawButtonAsDown) override;
 };
+
+//==============================================================================
 
 struct RotarySliderWithLabels : juce::Slider {
     RotarySliderWithLabels(juce::RangedAudioParameter& rap, const juce::String& unitSuffix) : 
@@ -179,6 +184,8 @@ private:
     juce::String suffix;
 };
 
+//==============================================================================
+
 struct PathProducer {
     PathProducer(SingleChannelSampleFifo<EQAudioProcessor::BlockType>& scsf) :
         leftChannelFifo(&scsf) {
@@ -199,6 +206,8 @@ private:
     juce::Path leftChannelFFTPath;
 };
 
+//==============================================================================
+
 struct ResponseCurveComponent : juce::Component, 
     juce::AudioProcessorParameter::Listener, juce::Timer {
     ResponseCurveComponent(EQAudioProcessor&);
@@ -216,6 +225,7 @@ struct ResponseCurveComponent : juce::Component,
 private: 
     EQAudioProcessor& audioProcessor;
     juce::Atomic<bool> parametersChanged{ false };
+    bool shouldShowFFTAnalysis = true;
 
     MonoChain monoChain;
     void updateChain();
@@ -226,12 +236,14 @@ private:
     juce::Rectangle<int> getAnalysisArea();
 
     PathProducer leftPathProducer, rightPathProducer;
-
-    bool shouldShowFFTAnalysis = true;
 };
 
 //==============================================================================
+
 struct PowerButton : juce::ToggleButton {};
+
+//==============================================================================
+
 struct AnalyzerButton : juce::ToggleButton {
     void resized() override {
         auto bounds = getLocalBounds();
@@ -247,20 +259,18 @@ struct AnalyzerButton : juce::ToggleButton {
             randomPath.lineTo(x,
                 insetRect.getY() + insetRect.getHeight() * r.nextFloat());
         }
-
     }
     juce::Path randomPath;
 };
+
 //==============================================================================
-/**
-*/
+
 class EQAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
     EQAudioProcessorEditor (EQAudioProcessor&);
     ~EQAudioProcessorEditor() override;
 
-    //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
 private:
@@ -278,7 +288,13 @@ private:
 
     ResponseCurveComponent responseCurveComponent;
 
+    PowerButton lowcutBypassButton, peakBypassButton, highcutBypassButton;
+    AnalyzerButton analyzerEnabledButton;
+
+    std::vector<juce::Component*> getComponents();
+
     using APVTS = juce::AudioProcessorValueTreeState;
+
     using Attachment = APVTS::SliderAttachment;
     Attachment peakFreqSliderAttachment,
         peakGainSliderAttachment,
@@ -288,16 +304,11 @@ private:
         lowCutSlopeSliderAttachment,
         highCutSlopeSliderAttachment;
 
-    PowerButton lowcutBypassButton, peakBypassButton, highcutBypassButton;
-    AnalyzerButton analyzerEnabledButton;
-
     using ButtonAttachment = APVTS::ButtonAttachment;
     ButtonAttachment lowcutBypassButtonAttachment,
         peakBypassButtonAttachment,
         highcutBypassButtonAttachment,
         analyzerEnabledButtonAttachment;
-
-    std::vector<juce::Component*> getComponents();
 
     LookAndFeel lnf;
 
