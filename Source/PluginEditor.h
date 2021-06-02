@@ -95,7 +95,7 @@ struct AnalyzerPathGenerator {
         auto map = [bottom, top, negativeInfinity](float v) {
             return juce::jmap(v,
                 negativeInfinity, 0.f,
-                float(bottom), top);
+                float(bottom + 7/*JUCE_LIVE_CONSTANT(1)*/), top);
         };
 
         auto y = map(renderData[0]);
