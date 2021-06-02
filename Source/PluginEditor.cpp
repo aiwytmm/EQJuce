@@ -618,6 +618,12 @@ void EQAudioProcessorEditor::paint (juce::Graphics& g)
     using namespace juce;
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (Colours::black);
+
+    g.setColour(Colours::grey);
+    g.setFont(14);
+    g.drawFittedText("LowCut", lowCutSlopeSlider.getBounds(), Justification::centredBottom, 1);
+    g.drawFittedText("Peak", peakQualitySlider.getBounds(), Justification::centredBottom, 1);
+    g.drawFittedText("HighCut", highCutSlopeSlider.getBounds(), Justification::centredBottom, 1);
 }
 
 void EQAudioProcessorEditor::resized()
