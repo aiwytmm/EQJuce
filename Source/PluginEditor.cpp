@@ -280,6 +280,7 @@ void ResponseCurveComponent::timerCallback() {
     if (parametersChanged.compareAndSetBool(false, true)) {
         //update the mono chain
         updateChain();
+        updateResponseCurve();
     }
 
     repaint();
@@ -300,13 +301,8 @@ void ResponseCurveComponent::updateChain() {
     updateCutFilter(monoChain.get<ChainPositions::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
 }
 
-void ResponseCurveComponent::paint(juce::Graphics& g)
-{
+void ResponseCurveComponent::updateResponseCurve() {
     using namespace juce;
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll(Colours::black);
-
-    g.drawImage(background, getLocalBounds().toFloat());
 
     auto responseArea = getAnalysisArea();
 
@@ -337,7 +333,7 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
             if (!lowcut.isBypassed<3>())
                 mag *= lowcut.get<3>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
         }
-        
+
         if (!monoChain.isBypassed<ChainPositions::HighCut>()) {
             if (!highcut.isBypassed<0>())
                 mag *= highcut.get<0>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
@@ -352,7 +348,7 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
         mags[i] = Decibels::gainToDecibels(mag);
     }
 
-    Path responseCurve;
+    responseCurve.clear();
     const double outputMin = responseArea.getBottom();
     const double outputMax = responseArea.getY();
     auto map = [outputMin, outputMax](double input) {
@@ -364,6 +360,17 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
     for (size_t i = 1; i < mags.size(); ++i) {
         responseCurve.lineTo(responseArea.getX() + i, map(mags[i]));
     }
+}
+
+void ResponseCurveComponent::paint(juce::Graphics& g)
+{
+    using namespace juce;
+    // (Our component is opaque, so we must completely fill the background with a solid colour)
+    g.fillAll(Colours::black);
+
+    drawBackgroundGrid(g);
+
+    auto responseArea = getAnalysisArea();
 
     if (shouldShowFFTAnalysis) {
         auto leftChannelFFTPath = leftPathProducer.getPath();
@@ -379,25 +386,34 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
         g.strokePath(rightChannelFFTPath, PathStrokeType(1.f));
     }
 
-    g.setColour(Colours::orange);
-    g.drawRoundedRectangle(getRenderArea().toFloat(), 4.f, 1.f);
-
     g.setColour(Colours::whitesmoke);
     g.strokePath(responseCurve, PathStrokeType(2.f));
+
+    Path border;
+    border.setUsingNonZeroWinding(false);
+    border.addRoundedRectangle(getRenderArea(), 4);
+    border.addRectangle(getLocalBounds());
+
+    g.setColour(Colours::transparentBlack);
+    g.fillPath(border);
+
+    drawTextLabels(g);
+
+    g.setColour(Colours::orange);
+    g.drawRoundedRectangle(getRenderArea().toFloat(), 4.f, 1.f);
 }
 
 void ResponseCurveComponent::resized() {
     using namespace juce;
-    background = Image(Image::PixelFormat::RGB, getWidth(), getHeight(), true);
+    
+    responseCurve.preallocateSpace(getWidth() * 3);
+    updateResponseCurve();
+}
 
-    Graphics g(background);
+void ResponseCurveComponent::drawBackgroundGrid(juce::Graphics& g) {
+    using namespace juce;
 
-    Array<float> freqs{
-        20, /*30, 40,*/ 50, 100,
-        200, /*300, 400,*/ 500, 1000,
-        2000, /*3000, 4000,*/ 5000, 10000,
-        20000
-    };
+    auto freqs = getFrequencies();
 
     auto renderArea = getAnalysisArea();
     auto left = renderArea.getX();
@@ -405,28 +421,34 @@ void ResponseCurveComponent::resized() {
     auto top = renderArea.getY();
     auto bottom = renderArea.getBottom();
     auto width = renderArea.getWidth();
-   
-    Array<float> xs;
-    for (auto f : freqs) {
-        auto normX = mapFromLog10(f, 20.f, 20000.f);
-        xs.add(left + width * normX);
-    }
 
+    auto xs = getXs(freqs, left, width);
     g.setColour(Colours::dimgrey);
-
     for (auto x : xs) {
         g.drawVerticalLine(x, top, bottom);
     }
 
-    Array<float> gain{
-        -24, -12, 0, 12, 24
-    };
+    auto gain = getGain();
     for (auto gDb : gain) {
         auto y = jmap(gDb, -24.f, 24.f, float(bottom), float(top));
-       
+
         g.setColour(gDb == 0.f ? Colour(0u, 172u, 1u) : Colours::darkgrey);
         g.drawHorizontalLine(y, left, right);
     }
+}
+
+void ResponseCurveComponent::drawTextLabels(juce::Graphics& g) {
+    using namespace juce;
+
+    auto renderArea = getAnalysisArea();
+    auto left = renderArea.getX();
+    auto top = renderArea.getY();
+    auto bottom = renderArea.getBottom();
+    auto width = renderArea.getWidth();
+
+    auto freqs = getFrequencies();
+    auto xs = getXs(freqs, left, width);
+    auto gain = getGain();
 
     g.setColour(Colours::lightgrey);
     const int fontHeight = 10;
@@ -484,6 +506,30 @@ void ResponseCurveComponent::resized() {
         g.setColour(Colours::lightgrey);
         g.drawFittedText(str, r, Justification::centred, 1);
     }
+}
+
+std::vector<float> ResponseCurveComponent::getFrequencies() {
+    return std::vector<float> {
+        20, /*30, 40,*/ 50, 100,
+            200, /*300, 400,*/ 500, 1000,
+            2000, /*3000, 4000,*/ 5000, 10000,
+            20000
+    };
+}
+
+std::vector<float> ResponseCurveComponent::getGain() {
+    return std::vector<float> {
+        -24, -12, 0, 12, 24
+    };
+}
+
+std::vector<float> ResponseCurveComponent::getXs(const std::vector<float>& frequencies, float left, float width) {
+    std::vector<float> xs;
+    for (auto f : frequencies) {
+        auto normX = juce::mapFromLog10(f, 20.f, 20000.f);
+        xs.push_back(left + width * normX);
+    }
+    return xs;
 }
 
 juce::Rectangle<int> ResponseCurveComponent::getRenderArea() {
@@ -631,16 +677,17 @@ void EQAudioProcessorEditor::resized()
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
     auto bounds = getLocalBounds();
+    bounds.removeFromTop(3); //JUCE_LIVE_CONSTANT(1)
 
     auto analyzerEnabledArea = bounds.removeFromTop(25);
-    analyzerEnabledArea.setWidth(100);
+    analyzerEnabledArea.setWidth(50); //JUCE_LIVE_CONSTANT(100)
     analyzerEnabledArea.setX(5);
     analyzerEnabledArea.removeFromTop(2);
     analyzerEnabledButton.setBounds(analyzerEnabledArea);
 
     bounds.removeFromTop(5);
 
-    float hRation = 25.f / 100.f; /* JUCE_LIVE_CONSTANT(33) / 100.f */
+    float hRation = 25.f / 100.f; // JUCE_LIVE_CONSTANT(33)
     auto responseArea = bounds.removeFromTop(bounds.getHeight() * hRation);
 
     responseCurveComponent.setBounds(responseArea);
